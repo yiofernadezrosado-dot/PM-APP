@@ -4,28 +4,36 @@ import pandas as pd
 st.set_page_config(page_title="PM Performance System", layout="wide")
 
 # -------------------------
-# UI STYLE SIMPLE
+# STYLE (ANIMATED TITLE)
 # -------------------------
 st.markdown("""
 <style>
-body {
-    background-color: #0f172a;
-}
-h1 {
-    color: white;
+.title {
+    font-size: 42px;
+    font-weight: bold;
     text-align: center;
+    background: linear-gradient(90deg, #3b82f6, #22c55e, #f97316);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: glow 3s infinite alternate;
 }
+
+@keyframes glow {
+    from {filter: brightness(1);}
+    to {filter: brightness(1.5);}
+}
+
 .card {
     padding: 15px;
-    background-color: #1e293b;
-    border-radius: 10px;
-    margin-bottom: 10px;
+    background-color: #111827;
+    border-radius: 12px;
     color: white;
+    margin-top: 10px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("Performance Management System")
+st.markdown("<div class='title'>Performance Management System</div>", unsafe_allow_html=True)
 
 # -------------------------
 # STORAGE
@@ -59,16 +67,40 @@ def delivery_score(days_diff):
         return 0.3
 
 # -------------------------
-# INPUT SECTION
+# LEGEND / EXPLANATION
+# -------------------------
+with st.expander("Cómo funciona el sistema (Importante)"):
+    st.write("""
+    ### Sistema de fechas
+
+    El sistema compara automáticamente:
+
+    - Deadline original (fecha límite)
+    - Fecha de entrega real
+
+    Luego calcula:
+
+    **Días = Deadline - Entrega**
+
+    ### Interpretación:
+    - Positivo → entregó antes
+    - 0 → a tiempo
+    - Negativo → tarde
+
+    ### Ejemplo:
+    - 2 → 2 días antes
+    - -3 → 3 días tarde
+    """)
+
+# -------------------------
+# INPUT
 # -------------------------
 st.subheader("Ingreso de datos")
 
-col1, col2 = st.columns(2)
+name = st.text_input("Nombre del miembro")
+division = st.selectbox("División", divisions)
 
-with col1:
-    name = st.text_input("Nombre del miembro")
-    division = st.selectbox("División", divisions)
-    num_tasks = st.number_input("Número de tareas", min_value=1, step=1)
+num_tasks = st.number_input("Número de tareas", min_value=1, step=1)
 
 tasks = []
 
@@ -76,6 +108,7 @@ st.markdown("---")
 st.write("### Tareas")
 
 for i in range(int(num_tasks)):
+
     st.markdown(f"**Tarea {i+1}**")
 
     completed = st.selectbox(
@@ -90,10 +123,27 @@ for i in range(int(num_tasks)):
         key=f"p{i}"
     )
 
-    days_diff = st.number_input(
-        "Días (positivo = antes, negativo = tarde)",
-        key=f"d{i}"
-    )
+    st.markdown("#### Fechas")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        deadline = st.date_input(
+            "Deadline original",
+            key=f"dl{i}",
+            help="Fecha límite oficial de la tarea"
+        )
+
+    with col2:
+        delivery = st.date_input(
+            "Fecha de entrega",
+            key=f"dv{i}",
+            help="Fecha en la que se entregó la tarea"
+        )
+
+    days_diff = (deadline - delivery).days
+
+    st.info(f"Diferencia automática de días: {days_diff}")
 
     tasks.append({
         "completed": completed,
@@ -107,7 +157,7 @@ days_required = st.number_input("Días requeridos")
 days_attended = st.number_input("Días asistidos")
 
 # -------------------------
-# ADD MEMBER
+# CALCULATE
 # -------------------------
 if st.button("Agregar miembro"):
 
@@ -138,26 +188,41 @@ if st.button("Agregar miembro"):
         "Performance": round(performance, 2)
     })
 
-    st.success(f"Usuario {name} agregado correctamente a la tabla")
+    st.success("Miembro agregado correctamente")
 
-    # CARD VISUAL
+    # VISUAL DASHBOARD
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Output", round(output, 2))
+    col2.metric("Attendance", round(attendance, 2))
+    col3.metric("Delivery", round(delivery, 2))
+    col4.metric("Performance", round(performance, 2))
+
     st.markdown(f"""
     <div class="card">
-        <h4>{name} ({division})</h4>
-        <p>Output: {round(output,2)}</p>
-        <p>Attendance: {round(attendance,2)}</p>
-        <p>Delivery: {round(delivery,2)}</p>
-        <p><b>Performance: {round(performance,2)}</b></p>
+        <h3>{name} - {division}</h3>
+        <p>Registro añadido correctamente al sistema</p>
     </div>
     """, unsafe_allow_html=True)
 
 # -------------------------
-# TABLE OUTPUT
+# TABLE
 # -------------------------
 st.subheader("Tabla general")
 
 if len(st.session_state.data) > 0:
+
     df = pd.DataFrame(st.session_state.data)
+
+    df.columns = [
+        "Nombre",
+        "División",
+        "Output (Productividad)",
+        "Attendance (Asistencia)",
+        "Delivery (Tiempo)",
+        "Performance (Final)"
+    ]
+
     st.dataframe(df, use_container_width=True)
 
     csv = df.to_csv(index=False).encode("utf-8")
@@ -168,5 +233,6 @@ if len(st.session_state.data) > 0:
         "performance_data.csv",
         "text/csv"
     )
+
 else:
     st.write("No hay datos aún")
